@@ -19,6 +19,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: nightly
+          components: rustfmt
 
       - name: Cache cargo
         uses: actions/cache@v4
