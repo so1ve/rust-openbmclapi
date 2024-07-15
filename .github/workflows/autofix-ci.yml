@@ -1,0 +1,42 @@
+name: autofix.ci
+on:
+  push:
+    branches:
+      - main
+
+  pull_request: {}
+
+permissions:
+  contents: read
+
+jobs:
+  autofix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: nightly
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: bench-cargo-cache
+
+      - name: Format
+        run: cargo fmt
+
+      - uses: autofix-ci/action@ea32e3a12414e6d3183163c3424a7d7a8631ad84
+        with:
+          commit-message: "chore: apply automatic fixes"
+
+      - name: Clear the cargo caches
+        run: |
+          cargo install cargo-cache --no-default-features --features ci-autoclean
+          cargo-cache
