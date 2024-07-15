@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::time::Duration;
 
 use reqwest::{Client, ClientBuilder};
@@ -111,4 +112,3 @@ impl TokenManager {
         Ok(())
     }
 }
-use std::cmp::max;
