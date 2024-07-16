@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use super::{File, Storage};
+use super::{BMCLAPIFile, Storage};
 
 pub struct LocalStorage {}
 
@@ -20,7 +20,7 @@ impl Storage for LocalStorage {
         unimplemented!()
     }
 
-    async fn write(&self, path: &str, content: &[u8]) -> Result<()> {
+    async fn write(&mut self, path: &str, content: &[u8], file: BMCLAPIFile) -> Result<()> {
         unimplemented!()
     }
 
@@ -32,11 +32,11 @@ impl Storage for LocalStorage {
         unimplemented!()
     }
 
-    async fn garbage_collection(&self) -> Result<()> {
+    async fn get_missing_files(&self, files: Vec<BMCLAPIFile>) -> Result<Vec<BMCLAPIFile>> {
         unimplemented!()
     }
 
-    async fn check_missing_files(&self) -> Result<Vec<File>> {
+    async fn garbage_collection(&self) -> Result<()> {
         unimplemented!()
     }
 }

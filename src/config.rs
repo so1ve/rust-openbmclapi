@@ -1,3 +1,4 @@
+use std::fmt::{self, Display, Formatter};
 use std::fs;
 use std::path::PathBuf;
 
@@ -20,6 +21,15 @@ pub enum StorageType {
     Local,
     #[serde(rename = "webdav")]
     Webdav(WebdavStorageConfig),
+}
+
+impl Display for StorageType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Local => write!(f, "local"),
+            Self::Webdav(_) => write!(f, "webdav"),
+        }
+    }
 }
 
 #[derive(Deserialize)]

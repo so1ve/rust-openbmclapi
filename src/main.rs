@@ -3,7 +3,7 @@ mod config;
 mod storage;
 mod token;
 
-use anyhow::{bail, Result};
+use anyhow::Result;
 use cli::parse_cli;
 use config::load_config;
 use const_format::concatcp;
