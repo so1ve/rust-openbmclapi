@@ -1,0 +1,9 @@
+cluster_id = ""
+cluster_secret = ""
+
+[[storage]]
+type = "webdav"
+endpoint = ""
+basepath = ""
+username = ""
+password = ""

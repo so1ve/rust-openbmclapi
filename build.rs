@@ -21,7 +21,7 @@ fn main() {
     let commit_hash = get_commit_hash();
     let version = "rust-openbmclapi/".to_string() + &pkg_version + "-" + &commit_hash;
     let out_dir = env::var_os("OUT_DIR").unwrap();
-    let dest_path = Path::new(&out_dir).join("VERSION");
+    let dest_path = Path::new(&out_dir).join("PKG_VERSION");
     fs::write(&dest_path, pkg_version).unwrap();
     let dest_path = Path::new(&out_dir).join("VERSION");
     fs::write(&dest_path, version).unwrap();

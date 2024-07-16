@@ -6,7 +6,6 @@ use ring::hmac;
 use serde::Deserialize;
 use serde_json::json;
 use tracing::{debug, trace};
-use tracing_unwrap::ResultExt;
 
 use crate::USER_AGENT;
 
@@ -34,9 +33,9 @@ impl TokenManager {
             .base_url(base_url)
             .user_agent(USER_AGENT)
             .build()
-            .unwrap_or_log();
+            .unwrap();
 
-        TokenManager {
+        Self {
             cluster_id,
             cluster_secret,
             token: None,
@@ -82,7 +81,7 @@ impl TokenManager {
             Duration::from_millis(ttl / 2),
         );
         tokio::time::sleep(sleep_time).await;
-        self.get_refreshed_token().await.unwrap_or_log();
+        self.get_refreshed_token().await.unwrap();
 
         trace!("Scheduled refresh token in {:?}ms", sleep_time.as_millis());
     }
