@@ -64,13 +64,16 @@ impl Storage for LocalStorage {
     }
 
     async fn exists(&self, path: &str) -> bool {
-        let file_path = Path::new(&self.storage_config.cache_dir).join(path);
-        file_path.exists()
+        Path::new(&self.storage_config.cache_dir)
+            .join(path)
+            .exists()
     }
 
     async fn get_absolute_path(&self, path: &str) -> String {
-        let file_path = Path::new(&self.storage_config.cache_dir).join(path);
-        file_path.to_string_lossy().to_string()
+        Path::new(&self.storage_config.cache_dir)
+            .join(path)
+            .to_string_lossy()
+            .to_string()
     }
 
     async fn check_missing_files(&mut self, files: Vec<BMCLAPIFile>) -> Result<Vec<BMCLAPIFile>> {
