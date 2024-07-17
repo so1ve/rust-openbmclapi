@@ -1,11 +1,13 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
+use std::rc::Rc;
 use std::time::SystemTime;
 
 use anyhow::{bail, Ok, Result};
+use regex::Regex;
 use reqwest_dav::list_cmd::{ListEntity, ListFile, ListFolder};
 use reqwest_dav::{Auth, Client, ClientBuilder, Depth};
-use tracing::{error, info};
+use tracing::{error, info, trace};
 
 use super::{BMCLAPIFile, Storage};
 use crate::config::WebdavStorageConfig;
@@ -42,10 +44,20 @@ impl WebdavStorage {
         }
     }
 
+    fn download_basepath_with_dav_basepath(&self) -> String {
+        Path::new(self.storage_config.dav_basepath.as_str())
+            .join(self.storage_config.download_basepath.as_str())
+            .to_string_lossy()
+            .to_string()
+    }
+
     async fn get_local_and_remote_files(
         &mut self,
         files: Vec<BMCLAPIFile>,
-    ) -> Result<(Vec<ListFile>, HashMap<String, BMCLAPIFile>)> {
+    ) -> Result<(
+        BTreeMap<String, Vec<ListFile>>,
+        HashMap<String, BMCLAPIFile>,
+    )> {
         let remote_files: HashMap<String, BMCLAPIFile> = files
             .into_iter()
             .filter_map(|file| {
@@ -56,58 +68,78 @@ impl WebdavStorage {
             })
             .collect();
 
-        let mut folders: Vec<ListFolder> = self
+        let folders: Vec<ListFolder> = self
             .webdav_client
-            .list(&self.storage_config.download_basepath, Depth::Number(1))
+            .list(
+                &self.download_basepath_with_dav_basepath(),
+                Depth::Number(1),
+            )
             .await?
             .into_iter()
             .filter_map(|entity| {
                 if let ListEntity::Folder(folder) = entity {
-                    Some(folder)
+                    if path_basename(&folder.href)
+                        != path_basename(&self.download_basepath_with_dav_basepath())
+                    {
+                        Some(folder)
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
             })
             .collect();
-        folders.sort_by(|a, b| {
-            let a_basename = path_basename(&a.href).unwrap();
-            let b_basename = path_basename(&b.href).unwrap();
-            a_basename.cmp(b_basename)
-        });
 
-        let mut local_files: Vec<Vec<ListFile>> = vec![];
+        let mut local_files: BTreeMap<String, Vec<ListFile>> = BTreeMap::new();
+        let mut tasks = Vec::with_capacity(folders.len());
+
         for folder in folders {
-            let files: Vec<ListFile> = self
-                .webdav_client
-                .list(&folder.href, Depth::Number(1))
-                .await?
-                .into_iter()
-                .filter_map(|entity| {
-                    if let ListEntity::File(file) = entity {
-                        Some(file)
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-            local_files.push(files);
+            let webdav_client = self.webdav_client.clone();
+            let depth = Depth::Number(1);
+
+            tasks.push(tokio::spawn(async move {
+                let basename = path_basename(&folder.href).unwrap();
+                let files: Vec<ListFile> = webdav_client
+                    .list(&folder.href, depth)
+                    .await?
+                    .into_iter()
+                    .filter_map(|entity| {
+                        if let ListEntity::File(file) = entity {
+                            Some(file)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
+                Ok((basename.to_owned(), files))
+            }));
         }
 
-        Ok((local_files.concat(), remote_files))
+        for task in tasks {
+            let (folder, files) = task.await.unwrap().unwrap();
+            trace!("Listed files in folder: {}", folder);
+            local_files.insert(folder, files);
+        }
+
+        Ok((local_files, remote_files))
     }
 }
 
 #[async_trait::async_trait]
 impl Storage for WebdavStorage {
     async fn init(&self) -> Result<()> {
-        let basepath_exists = self.exists(&self.storage_config.download_basepath).await;
+        let basepath_exists = self
+            .exists(&self.download_basepath_with_dav_basepath())
+            .await;
         if !basepath_exists {
             info!(
                 "Creating base path {}",
-                &self.storage_config.download_basepath
+                &self.storage_config.download_basepath,
             );
             self.webdav_client
-                .mkcol(&self.storage_config.download_basepath)
+                .mkcol(&self.download_basepath_with_dav_basepath())
                 .await?;
         }
         info!("Init success");
@@ -116,7 +148,7 @@ impl Storage for WebdavStorage {
     }
 
     async fn validate(&self) -> Result<()> {
-        let temp_file_path = Path::new(&self.storage_config.download_basepath)
+        let temp_file_path = Path::new(&self.download_basepath_with_dav_basepath())
             .join(".check")
             .to_string_lossy()
             .to_string();
@@ -144,7 +176,7 @@ impl Storage for WebdavStorage {
             self.empty_files.push(file.hash);
             return Ok(());
         }
-        let file_path = Path::new(&self.storage_config.download_basepath)
+        let file_path = Path::new(&self.download_basepath_with_dav_basepath())
             .join(path)
             .to_string_lossy()
             .to_string();
@@ -174,11 +206,16 @@ impl Storage for WebdavStorage {
             "{}:{}",
             self.storage_config.username, self.storage_config.password
         );
-        let absolute_path = Path::new(&self.storage_config.download_basepath)
-            .join(path)
-            .to_string_lossy()
-            .to_string();
-        let url = format!("{protocol}://{auth}@{absolute_path}",);
+        let regexp = Regex::new(&format!("^({protocol}?://)")).unwrap();
+        let url = Path::new(
+            &regexp
+                .replace(&self.storage_config.endpoint, format!("$1{auth}@").as_str())
+                .to_string(),
+        )
+        .join(&self.download_basepath_with_dav_basepath())
+        .join(path)
+        .to_string_lossy()
+        .to_string();
 
         url
     }
@@ -186,19 +223,22 @@ impl Storage for WebdavStorage {
     async fn check_missing_files(&mut self, files: Vec<BMCLAPIFile>) -> Result<Vec<BMCLAPIFile>> {
         let (local_files, mut remote_files) = self.get_local_and_remote_files(files).await?;
 
-        for file in local_files {
-            let basename = path_basename(&file.href).unwrap();
-            if let Some(remote_file) = remote_files.get(basename) {
-                let file_size = file.content_length as usize;
-                if remote_file.size == file_size {
-                    self.files.insert(
-                        basename.to_string(),
-                        WebdavFile {
-                            size: file_size,
-                            path: file.href.clone(),
-                        },
-                    );
-                    remote_files.remove(basename);
+        for files in local_files {
+            trace!("Checking folder: {}", files.0);
+            for file in files.1 {
+                let basename = path_basename(&file.href).unwrap();
+                if let Some(remote_file) = remote_files.get(basename) {
+                    let file_size = file.content_length as usize;
+                    if remote_file.size == file_size {
+                        self.files.insert(
+                            basename.to_string(),
+                            WebdavFile {
+                                size: file_size,
+                                path: file.href.clone(),
+                            },
+                        );
+                        remote_files.remove(basename);
+                    }
                 }
             }
         }
@@ -211,12 +251,14 @@ impl Storage for WebdavStorage {
             // TODO: No more clones
             files.clone().into_iter().map(|file| file.hash).collect();
         let (local_files, _) = self.get_local_and_remote_files(files).await?;
-        for file in local_files {
-            let basename = path_basename(&file.href).unwrap();
-            if !remote_file_hashes.contains(basename) {
-                info!("Deleting unused file: {}", &file.href);
-                self.webdav_client.delete(&file.href).await?;
-                self.files.remove(basename);
+        for files in local_files {
+            for file in files.1 {
+                let basename = path_basename(&file.href).unwrap();
+                if !remote_file_hashes.contains(basename) {
+                    info!("Deleting unused file: {}", &file.href);
+                    self.webdav_client.delete(&file.href).await?;
+                    self.files.remove(basename);
+                }
             }
         }
 

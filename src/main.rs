@@ -22,7 +22,9 @@ async fn hello() -> &'static str {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt().init();
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
 
     let cli = parse_cli();
     let config = match load_config(cli.config) {
@@ -33,9 +35,9 @@ async fn main() -> Result<()> {
         }
     };
 
-    let alist_storage = get_storage(config.storage[0].clone());
+    let mut alist_storage = get_storage(config.storage[0].clone());
 
-    let res = alist_storage.check_missing_files().await?;
+    let res = alist_storage.check_missing_files(vec![]).await?;
 
     let router = Router::new().get(hello);
     let acceptor = TcpListener::new("127.0.0.1:5800").bind().await;

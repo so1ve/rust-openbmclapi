@@ -11,9 +11,15 @@ pub struct LocalStorageConfig {
     pub cache_dir: String,
 }
 
+fn dav_basepath_default() -> String {
+    "/dav".into()
+}
+
 #[derive(Clone, Deserialize)]
 pub struct WebdavStorageConfig {
     pub endpoint: String,
+    #[serde(default = "dav_basepath_default")]
+    pub dav_basepath: String,
     pub download_basepath: String,
     // TODO: Redirect measure requests
     pub measure_basepath: Option<String>,

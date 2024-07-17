@@ -6,7 +6,7 @@ use crate::config::StorageType;
 mod local;
 mod webdav;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BMCLAPIFile {
     pub path: String,
     pub hash: String,
