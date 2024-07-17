@@ -6,19 +6,26 @@ use anyhow::Result;
 use serde::Deserialize;
 use toml;
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
+pub struct LocalStorageConfig {
+    pub cache_dir: String,
+}
+
+#[derive(Clone, Deserialize)]
 pub struct WebdavStorageConfig {
     pub endpoint: String,
-    pub basepath: String,
+    pub download_basepath: String,
+    // TODO: Redirect measure requests
+    pub measure_basepath: Option<String>,
     pub username: String,
     pub password: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(tag = "type")]
 pub enum StorageType {
     #[serde(rename = "local")]
-    Local,
+    Local(LocalStorageConfig),
     #[serde(rename = "webdav")]
     Webdav(WebdavStorageConfig),
 }
@@ -26,7 +33,7 @@ pub enum StorageType {
 impl Display for StorageType {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Local => write!(f, "local"),
+            Self::Local(_) => write!(f, "local"),
             Self::Webdav(_) => write!(f, "webdav"),
         }
     }

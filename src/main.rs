@@ -2,12 +2,14 @@ mod cli;
 mod config;
 mod storage;
 mod token;
+mod utils;
 
 use anyhow::Result;
 use cli::parse_cli;
 use config::load_config;
 use const_format::concatcp;
 use salvo::prelude::*;
+use storage::get_storage;
 use tracing::error;
 pub const VERSION: &'static str = include_str!(concat!(env!("OUT_DIR"), "/VERSION"));
 pub const PKG_VERSION: &'static str = include_str!(concat!(env!("OUT_DIR"), "/PKG_VERSION"));
@@ -30,6 +32,10 @@ async fn main() -> Result<()> {
             return Err(err);
         }
     };
+
+    let alist_storage = get_storage(config.storage[0].clone());
+
+    let res = alist_storage.check_missing_files().await?;
 
     let router = Router::new().get(hello);
     let acceptor = TcpListener::new("127.0.0.1:5800").bind().await;

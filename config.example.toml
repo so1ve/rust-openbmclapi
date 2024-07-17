@@ -4,6 +4,7 @@ cluster_secret = ""
 [[storage]]
 type = "webdav"
 endpoint = ""
-basepath = ""
+download_basepath = ""
+# measure_basepath = ""
 username = ""
 password = ""
