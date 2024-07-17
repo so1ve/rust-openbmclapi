@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
+use std::path::Path;
 use std::time::SystemTime;
 
 use anyhow::{bail, Ok, Result};
@@ -116,7 +116,10 @@ impl Storage for WebdavStorage {
     }
 
     async fn validate(&self) -> Result<()> {
-        let temp_file_path = format!("{}/.check", self.storage_config.download_basepath);
+        let temp_file_path = Path::new(&self.storage_config.download_basepath)
+            .join(".check")
+            .to_string_lossy()
+            .to_string();
         let temp_file_content = SystemTime::now().elapsed().unwrap().as_millis().to_string();
         let put_result = self
             .webdav_client
@@ -141,7 +144,10 @@ impl Storage for WebdavStorage {
             self.empty_files.push(file.hash);
             return Ok(());
         }
-        let file_path = format!("{}/{}", self.storage_config.download_basepath, path);
+        let file_path = Path::new(&self.storage_config.download_basepath)
+            .join(path)
+            .to_string_lossy()
+            .to_string();
         self.webdav_client.put(&file_path, content.to_vec()).await?;
         self.files.insert(
             file.hash,
@@ -168,10 +174,11 @@ impl Storage for WebdavStorage {
             "{}:{}",
             self.storage_config.username, self.storage_config.password
         );
-        let url = format!(
-            "{protocol}://{auth}@{}/{path}",
-            self.storage_config.download_basepath
-        );
+        let absolute_path = Path::new(&self.storage_config.download_basepath)
+            .join(path)
+            .to_string_lossy()
+            .to_string();
+        let url = format!("{protocol}://{auth}@{absolute_path}",);
 
         url
     }

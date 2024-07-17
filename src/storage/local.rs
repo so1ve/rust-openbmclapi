@@ -47,8 +47,7 @@ impl Storage for LocalStorage {
     }
 
     async fn write(&mut self, path: &str, content: &[u8], file: BMCLAPIFile) -> Result<()> {
-        let cache_dir = Path::new(&self.storage_config.cache_dir);
-        let file_path = cache_dir.join(path);
+        let file_path = Path::new(&self.storage_config.cache_dir).join(path);
         let mut file = match fs::File::create(&file_path) {
             Ok(file) => file,
             Err(err) => {
@@ -65,13 +64,13 @@ impl Storage for LocalStorage {
     }
 
     async fn exists(&self, path: &str) -> bool {
-        let cache_dir = Path::new(&self.storage_config.cache_dir);
-        let file_path = cache_dir.join(path);
+        let file_path = Path::new(&self.storage_config.cache_dir).join(path);
         file_path.exists()
     }
 
     async fn get_absolute_path(&self, path: &str) -> String {
-        unimplemented!()
+        let file_path = Path::new(&self.storage_config.cache_dir).join(path);
+        file_path.to_string_lossy().to_string()
     }
 
     async fn check_missing_files(&mut self, files: Vec<BMCLAPIFile>) -> Result<Vec<BMCLAPIFile>> {
