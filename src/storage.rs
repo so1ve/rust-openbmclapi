@@ -23,7 +23,7 @@ pub trait Storage {
     async fn write(&mut self, path: &str, content: &[u8], file: BMCLAPIFile) -> Result<()>;
     async fn exists(&self, path: &str) -> bool;
     async fn get_absolute_path(&self, path: &str) -> String;
-    async fn check_missing_files(&mut self, files: Vec<BMCLAPIFile>) -> Result<Vec<BMCLAPIFile>>;
+    async fn check_missing_files(&self, files: Vec<BMCLAPIFile>) -> Result<Vec<BMCLAPIFile>>;
     async fn cleanup_unused_files(&mut self, files: Vec<BMCLAPIFile>) -> Result<()>;
 }
 

@@ -9,7 +9,7 @@ use cli::parse_cli;
 use config::load_config;
 use const_format::concatcp;
 use salvo::prelude::*;
-use storage::get_storage;
+use storage::{get_storage, BMCLAPIFile};
 use tracing::error;
 pub const VERSION: &'static str = include_str!(concat!(env!("OUT_DIR"), "/VERSION"));
 pub const PKG_VERSION: &'static str = include_str!(concat!(env!("OUT_DIR"), "/PKG_VERSION"));
@@ -37,7 +37,16 @@ async fn main() -> Result<()> {
 
     let mut alist_storage = get_storage(config.storage[0].clone());
 
-    let res = alist_storage.check_missing_files(vec![]).await?;
+    let res = alist_storage
+        .check_missing_files(vec![BMCLAPIFile {
+            path: "".into(),
+            hash: "114".into(),
+            size: 1,
+            mtime: 0,
+        }])
+        .await?;
+
+    println!("{:?}", res);
 
     let router = Router::new().get(hello);
     let acceptor = TcpListener::new("127.0.0.1:5800").bind().await;

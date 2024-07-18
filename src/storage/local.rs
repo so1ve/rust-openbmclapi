@@ -76,7 +76,7 @@ impl Storage for LocalStorage {
             .to_string()
     }
 
-    async fn check_missing_files(&mut self, files: Vec<BMCLAPIFile>) -> Result<Vec<BMCLAPIFile>> {
+    async fn check_missing_files(&self, files: Vec<BMCLAPIFile>) -> Result<Vec<BMCLAPIFile>> {
         unimplemented!()
     }
 

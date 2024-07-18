@@ -1,12 +1,13 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
-use std::rc::Rc;
+use std::sync::Arc;
 use std::time::SystemTime;
 
 use anyhow::{bail, Ok, Result};
 use regex::Regex;
 use reqwest_dav::list_cmd::{ListEntity, ListFile, ListFolder};
 use reqwest_dav::{Auth, Client, ClientBuilder, Depth};
+use tokio::sync::Mutex;
 use tracing::{error, info, trace};
 
 use super::{BMCLAPIFile, Storage};
@@ -18,10 +19,11 @@ struct WebdavFile {
     size: usize,
 }
 
+#[derive(Clone)]
 pub struct WebdavStorage {
     storage_config: WebdavStorageConfig,
     webdav_client: Client,
-    files: HashMap<String, WebdavFile>,
+    files: Arc<Mutex<HashMap<String, WebdavFile>>>,
     empty_files: Vec<String>,
 }
 
@@ -39,7 +41,7 @@ impl WebdavStorage {
         Self {
             storage_config,
             webdav_client,
-            files: HashMap::new(),
+            files: Arc::new(Mutex::new(HashMap::new())),
             empty_files: vec![],
         }
     }
@@ -52,16 +54,17 @@ impl WebdavStorage {
     }
 
     async fn get_local_and_remote_files(
-        &mut self,
+        &self,
         files: Vec<BMCLAPIFile>,
     ) -> Result<(
         BTreeMap<String, Vec<ListFile>>,
         HashMap<String, BMCLAPIFile>,
     )> {
+        let self_files = self.files.lock().await;
         let remote_files: HashMap<String, BMCLAPIFile> = files
             .into_iter()
             .filter_map(|file| {
-                if self.files.contains_key(&file.hash) {
+                if self_files.contains_key(&file.hash) {
                     return None;
                 }
                 Some((file.hash.clone(), file))
@@ -181,7 +184,7 @@ impl Storage for WebdavStorage {
             .to_string_lossy()
             .to_string();
         self.webdav_client.put(&file_path, content.to_vec()).await?;
-        self.files.insert(
+        self.files.lock().await.insert(
             file.hash,
             WebdavFile {
                 size: content.len(),
@@ -220,30 +223,45 @@ impl Storage for WebdavStorage {
         url
     }
 
-    async fn check_missing_files(&mut self, files: Vec<BMCLAPIFile>) -> Result<Vec<BMCLAPIFile>> {
-        let (local_files, mut remote_files) = self.get_local_and_remote_files(files).await?;
+    async fn check_missing_files(&self, files: Vec<BMCLAPIFile>) -> Result<Vec<BMCLAPIFile>> {
+        let (local_files, remote_files) = self.get_local_and_remote_files(files).await?;
 
-        for files in local_files {
-            trace!("Checking folder: {}", files.0);
-            for file in files.1 {
-                let basename = path_basename(&file.href).unwrap();
-                if let Some(remote_file) = remote_files.get(basename) {
-                    let file_size = file.content_length as usize;
-                    if remote_file.size == file_size {
-                        self.files.insert(
-                            basename.to_string(),
-                            WebdavFile {
-                                size: file_size,
-                                path: file.href.clone(),
-                            },
-                        );
-                        remote_files.remove(basename);
+        let tasks = local_files.into_iter().map(|(folder, files)| {
+            let clone = self.clone();
+            let remote_files_clone = remote_files.clone();
+            tokio::spawn(async move {
+                trace!("Checking folder: {}", folder);
+                let mut files_to_remove = vec![];
+                for file in files {
+                    let basename = path_basename(&file.href).unwrap();
+                    if let Some(remote_file) = remote_files_clone.get(basename) {
+                        let file_size = file.content_length as usize;
+                        if remote_file.size == file_size {
+                            clone.files.lock().await.insert(
+                                basename.to_string(),
+                                WebdavFile {
+                                    size: file_size,
+                                    path: file.href.clone(),
+                                },
+                            );
+                            files_to_remove.push(basename.to_owned());
+                        }
                     }
                 }
+                trace!("Checked folder: {}", folder);
+                files_to_remove
+            })
+        });
+
+        let mut remote_files = remote_files.clone();
+        for task in tasks {
+            let files_to_remove = task.await?;
+            for file in files_to_remove {
+                remote_files.remove(&file);
             }
         }
 
-        Ok(remote_files.into_iter().map(|(_, file)| file).collect())
+        Ok(remote_files.into_iter().map(|f| f.1).collect())
     }
 
     async fn cleanup_unused_files(&mut self, files: Vec<BMCLAPIFile>) -> Result<()> {
@@ -257,7 +275,7 @@ impl Storage for WebdavStorage {
                 if !remote_file_hashes.contains(basename) {
                     info!("Deleting unused file: {}", &file.href);
                     self.webdav_client.delete(&file.href).await?;
-                    self.files.remove(basename);
+                    self.files.lock().await.remove(basename);
                 }
             }
         }
