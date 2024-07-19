@@ -45,8 +45,14 @@ impl Display for StorageType {
     }
 }
 
+fn bmclapi_default() -> String {
+    "https://openbmclapi.bangbang93.com".into()
+}
+
 #[derive(Deserialize)]
 pub struct Config {
+    #[serde(default = "bmclapi_default")]
+    pub bmclapi: String,
     pub cluster_id: String,
     pub cluster_secret: String,
     pub storage: Vec<StorageType>,

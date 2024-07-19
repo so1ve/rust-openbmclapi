@@ -1,6 +1,9 @@
+use std::borrow::Borrow;
+use std::cell::{Cell, RefCell};
 use std::cmp::max;
 use std::time::Duration;
 
+use async_cell::sync::AsyncCell;
 use reqwest::{Client, ClientBuilder};
 use ring::hmac;
 use serde::Deserialize;
@@ -20,17 +23,17 @@ struct TokenResponse {
     ttl: u64,
 }
 
-pub struct TokenManager {
-    cluster_id: String,
-    cluster_secret: String,
-    token: Option<String>,
+pub struct TokenManager<'a> {
+    cluster_id: &'a str,
+    cluster_secret: &'a str,
+    token: AsyncCell<Option<String>>,
     reqwest_client: Client,
 }
 
-impl TokenManager {
-    pub fn new(cluster_id: String, cluster_secret: String, base_url: String) -> Self {
+impl<'a> TokenManager<'a> {
+    pub fn new(cluster_id: &'a str, cluster_secret: &'a str, base_url: &'a str) -> Self {
         let reqwest_client = ClientBuilder::new()
-            .base_url(base_url)
+            .base_url(base_url.to_string())
             .user_agent(USER_AGENT)
             .build()
             .unwrap();
@@ -38,12 +41,12 @@ impl TokenManager {
         Self {
             cluster_id,
             cluster_secret,
-            token: None,
+            token: AsyncCell::new(),
             reqwest_client,
         }
     }
 
-    pub async fn fetch_token(&mut self) -> Result<String, reqwest::Error> {
+    pub async fn fetch_token(&self) -> Result<String, reqwest::Error> {
         let challenge_response: ChallengeResponse = self
             .reqwest_client
             .get("/openbmclapi-agent/challenge")
@@ -75,7 +78,7 @@ impl TokenManager {
         Ok(token_response.token)
     }
 
-    async fn schedule_refresh_token(&mut self, ttl: u64) {
+    async fn schedule_refresh_token(&self, ttl: u64) {
         let sleep_time = max(
             Duration::from_millis(ttl) - Duration::from_secs(600),
             Duration::from_millis(ttl / 2),
@@ -87,10 +90,11 @@ impl TokenManager {
     }
 
     #[async_recursion::async_recursion]
-    async fn get_refreshed_token(&mut self) -> Result<(), reqwest::Error> {
+    async fn get_refreshed_token(&self) -> Result<(), reqwest::Error> {
+        let token = self.token.get().await;
         let token_request_body = json!({
             "clusterId": &self.cluster_id,
-            "token": self.token.as_ref()
+            "token": token
         });
 
         let token_response: TokenResponse = self
@@ -102,7 +106,7 @@ impl TokenManager {
             .json()
             .await?;
 
-        self.token = Some(token_response.token);
+        self.token.set(Some(token_response.token));
 
         debug!("Successfully refreshed token");
 

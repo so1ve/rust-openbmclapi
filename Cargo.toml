@@ -8,6 +8,7 @@ publish = false
 anyhow = "1.0.86"
 async-recursion = "1.1.1"
 async-trait = "0.1.81"
+async_cell = "0.2.2"
 clap = { version = "4.5.9", features = ["derive"] }
 const_format = "0.2.32"
 hex = "0.4.3"

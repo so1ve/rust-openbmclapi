@@ -1,3 +1,4 @@
+mod bootstrap;
 mod cli;
 mod config;
 mod storage;
@@ -5,15 +6,16 @@ mod token;
 mod utils;
 
 use anyhow::Result;
+use bootstrap::bootstrap;
 use cli::parse_cli;
 use config::load_config;
 use const_format::concatcp;
 use salvo::prelude::*;
-use storage::{get_storage, BMCLAPIFile};
 use tracing::error;
+
 pub const VERSION: &'static str = include_str!(concat!(env!("OUT_DIR"), "/VERSION"));
 pub const PKG_VERSION: &'static str = include_str!(concat!(env!("OUT_DIR"), "/PKG_VERSION"));
-pub const USER_AGENT: &'static str = concatcp!("openbmclapi-cluster/", PKG_VERSION, " ", VERSION);
+pub const USER_AGENT: &'static str = concatcp!("openbmclapi-cluster/", PKG_VERSION);
 
 #[handler]
 async fn hello() -> &'static str {
@@ -35,22 +37,20 @@ async fn main() -> Result<()> {
         }
     };
 
-    let mut alist_storage = get_storage(config.storage[0].clone());
+    bootstrap(&config).await;
 
-    let res = alist_storage
-        .check_missing_files(vec![BMCLAPIFile {
-            path: "".into(),
-            hash: "114".into(),
-            size: 1,
-            mtime: 0,
-        }])
-        .await?;
+    // let mut alist_storage = get_storage(config.storage[0].clone());
 
-    println!("{:?}", res);
+    // let res = alist_storage
+    //     .check_missing_files(vec![BMCLAPIFile {
+    //         path: "".into(),
+    //         hash: "114".into(),
+    //         size: 1,
+    //         mtime: 0,
+    //     }])
+    //     .await?;
 
-    let router = Router::new().get(hello);
-    let acceptor = TcpListener::new("127.0.0.1:5800").bind().await;
-    Server::new(acceptor).serve(router).await;
+    // println!("{:?}", res);
 
     Ok(())
 }
