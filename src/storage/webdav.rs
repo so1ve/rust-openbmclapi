@@ -228,13 +228,13 @@ impl Storage for WebdavStorage {
 
         let tasks = local_files.into_iter().map(|(folder, files)| {
             let clone = self.clone();
-            let remote_files_clone = remote_files.clone();
+            let remote_files = remote_files.clone();
             tokio::spawn(async move {
                 trace!("Checking folder: {}", folder);
                 let mut files_to_remove = vec![];
                 for file in files {
                     let basename = path_basename(&file.href).unwrap();
-                    if let Some(remote_file) = remote_files_clone.get(basename) {
+                    if let Some(remote_file) = remote_files.get(basename) {
                         let file_size = file.content_length as usize;
                         if remote_file.size == file_size {
                             clone.files.lock().await.insert(
@@ -249,10 +249,12 @@ impl Storage for WebdavStorage {
                     }
                 }
                 trace!("Checked folder: {}", folder);
+
                 files_to_remove
             })
         });
 
+        // TODO
         let mut remote_files = remote_files.clone();
         for task in tasks {
             let files_to_remove = task.await?;
@@ -269,14 +271,27 @@ impl Storage for WebdavStorage {
             // TODO: No more clones
             files.clone().into_iter().map(|file| file.hash).collect();
         let (local_files, _) = self.get_local_and_remote_files(files).await?;
-        for files in local_files {
-            for file in files.1 {
-                let basename = path_basename(&file.href).unwrap();
-                if !remote_file_hashes.contains(basename) {
-                    info!("Deleting unused file: {}", &file.href);
-                    self.webdav_client.delete(&file.href).await?;
-                    self.files.lock().await.remove(basename);
+
+        let tasks = local_files.into_iter().map(|files| {
+            let remote_file_hashes = remote_file_hashes.clone();
+            tokio::spawn(async move {
+                let mut files_to_remove: Vec<(String, String)> = vec![];
+                for file in files.1 {
+                    let basename = path_basename(&file.href).unwrap();
+                    if !remote_file_hashes.contains(basename) {
+                        files_to_remove.push((file.href.to_owned(), basename.to_owned()));
+                    }
                 }
+
+                files_to_remove
+            })
+        });
+
+        for task in tasks {
+            let files = task.await?;
+            for (href, hash) in files {
+                self.webdav_client.delete(&href).await?;
+                self.files.lock().await.remove(&hash);
             }
         }
 
