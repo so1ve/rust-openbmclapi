@@ -1791,9 +1791,9 @@ checksum = "6ea1a2d0a644769cc99faa24c3ad26b379b786fe7c36fd3c546254801650e6dd"
 
 [[package]]
 name = "salvo"
-version = "0.68.5"
+version = "0.76.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbb127117ded3db541930d7e732c02b458bde16a7de1684a9251bcb143d54b7c"
+checksum = "ac1c58c55d28215cdc389fb0270161f2d0ac3755fbc3938957ff1a0fe4929251"
 dependencies = [
  "salvo-jwt-auth",
  "salvo-proxy",
@@ -1802,9 +1802,9 @@ dependencies = [
 
 [[package]]
 name = "salvo-jwt-auth"
-version = "0.68.5"
+version = "0.76.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3eb9f17bf621e617a92d785a3e8747d0dd1a99c4105766159c7cce6577352ef9"
+checksum = "506df54783511e14c253b0811eab348d919e7ee3ed5e2c2b6f50900fdfc9de01"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -1815,16 +1815,16 @@ dependencies = [
  "salvo_core",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.11",
  "tokio",
  "tracing",
 ]
 
 [[package]]
 name = "salvo-proxy"
-version = "0.68.5"
+version = "0.76.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ebbf0e49bb64696194b00ab6c368770b8c02d32ca65bd56ea661892098a2550"
+checksum = "ad3f053ecd1b4949d9ff9082761b7d75a0a05655d366cfb42ad827b283eaf089"
 dependencies = [
  "fastrand",
  "futures-util",
@@ -1840,9 +1840,9 @@ dependencies = [
 
 [[package]]
 name = "salvo-serde-util"
-version = "0.68.5"
+version = "0.76.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d417e4f37cabea74c8834ecae5593bcbca46e5bfad18ffef207a474ee880c3b8"
+checksum = "865fb1b3d87f7942d9dde5f9445489573333e9daca1fd9dbb4bfd6d04f8d318b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1851,9 +1851,9 @@ dependencies = [
 
 [[package]]
 name = "salvo_core"
-version = "0.68.5"
+version = "0.76.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e6c62e31abf82bdf467bf14b6f78909ad308639e7e01861d9f6a3d96f7152c1"
+checksum = "8f299d2009e035299c823a7047146c962251498875126bbd317f38db571cc44b"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -1875,7 +1875,6 @@ dependencies = [
  "multer",
  "multimap",
  "nix",
- "once_cell",
  "parking_lot",
  "percent-encoding",
  "pin-project",
@@ -1887,7 +1886,7 @@ dependencies = [
  "serde_json",
  "sync_wrapper",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.11",
  "tokio",
  "tokio-rustls",
  "tokio-util",
@@ -1896,9 +1895,9 @@ dependencies = [
 
 [[package]]
 name = "salvo_macros"
-version = "0.68.5"
+version = "0.76.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "514bdefcb730b849ed493365e0e175bdb62ad7de171d4a301a9d6890daea1f2f"
+checksum = "c0e1c433387496699940d4b08a4e17fee4f8a2ab55d398224f385cfeeaeedb01"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
