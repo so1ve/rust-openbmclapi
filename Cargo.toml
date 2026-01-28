@@ -16,7 +16,7 @@ regex = "1.10.5"
 reqwest = { git = "https://github.com/thomasqueirozb/reqwest", branch = "base_url", features = [
   "json",
 ] }
-reqwest_dav = "0.1.12"
+reqwest_dav = "0.3.0"
 ring = "0.17.8"
 salvo = "0.68.5"
 serde = { version = "1.0.204", features = ["derive"] }
